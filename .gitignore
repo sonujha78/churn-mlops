@@ -7,3 +7,12 @@ mlruns/
 data/*.csv
 models/*.pkl
 mlflow.db
+
+# Monitoring tool binaries (downloaded, not part of source code)
+monitoring/prometheus/prometheus-*/
+monitoring/prometheus/*.tar.gz
+monitoring/grafana-*/
+monitoring/*.tar.gz
+
+# Runtime prediction logs (generated data, not source)
+prediction_logs.jsonl
