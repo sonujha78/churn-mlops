@@ -1,0 +1,11 @@
+groups:
+  - name: model_drift_alerts
+    rules:
+      - alert: HighDataDrift
+        expr: model_drift_score > 0.25
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High data drift detected in churn model"
+          description: "Model drift score (PSI) is {{ $value }}, exceeding threshold of 0.25. Retraining may be required."
