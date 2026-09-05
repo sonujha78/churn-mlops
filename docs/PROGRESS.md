@@ -158,6 +158,48 @@ python3 src/trigger_retrain.py "drift_detected"
 Status: ✅ Done
 ---
 ## Step 7: Simulating Drift
-Status: 🔲 Not Started
+- Sent synthetic traffic with values far outside the training distribution (tenure_months ~150-170 vs training's 1-72, monthly_charges ~300-350 vs training's 20-120) to simulate a real-world customer base shift
+- Confirmed `model_drift_score` rose from a normal baseline (~0.24) to 8.19 — a ~33x increase over the 0.25 alert threshold
+- Confirmed the Grafana "Data Drift Score (PSI)" panel shows a sharp, clearly visible vertical spike at the moment shifted traffic was sent
+- Confirmed the Prometheus `HighDataDrift` alert transitioned from Inactive to Firing (verified via both the Prometheus UI and the `/api/v1/alerts` API, which returned `"state": "firing"` with a description noting the threshold breach)
+- This demonstrates the core scenario the task is built around: a model that keeps returning healthy HTTP 200 responses while silently degrading is detected without needing ground-truth labels
+Commands used:
+```bash
+# Simulate drifted traffic (shifted well outside training ranges)
+for i in {1..60}; do
+  tenure=$((RANDOM % 20 + 150))
+  monthly=$((RANDOM % 50 + 300))
+  total=$((tenure * monthly))
+  curl -s -X POST http://localhost:8000/predict \
+    -H "Content-Type: application/json" \
+    -d "{\"tenure_months\": $tenure, \"monthly_charges\": $monthly, \"total_charges\": $total, \"contract_type\": $((RANDOM % 3)), \"internet_service\": $((RANDOM % 3)), \"tech_support\": $((RANDOM % 2))}" > /dev/null
+  sleep 0.15
+done
+
+# Verify drift score and alert state
+curl -s http://localhost:9100/metrics | grep model_drift_score
+curl -s http://localhost:9090/api/v1/alerts | python3 -m json.tool
+```
+Screenshots:
+- `docs/screenshots/05-grafana-drift-spike.png` — Grafana dashboard showing the drift score spike
+- `docs/screenshots/06-prometheus-alert-firing.png` — Prometheus UI showing HighDataDrift alert firing
+- `docs/screenshots/07-prometheus-alert-api-response.png` — Prometheus API confirming firing state with PSI value
+Status: ✅ Done
+---
 ## Step 8: Documentation & Screenshots
-Status: 🔲 In Progress (screenshots being added to docs/screenshots/ as steps complete)
+- MLflow experiment comparison screenshots captured (3 runs: logistic_regression, random_forest, xgboost)
+- Model registry screenshots captured (version 1, staging -> production alias promotion)
+- Grafana dashboard screenshots captured (normal traffic baseline + simulated drift spike)
+- Prometheus alert screenshots captured (Inactive state and Firing state)
+- All screenshots organized under `docs/screenshots/`
+- This PROGRESS.md file itself serves as the running documentation log for every step, command, and fix applied throughout the project
+Status: ✅ Done
+
+---
+
+## Project Complete
+
+All 8 steps of the MLOps Customer Churn Prediction pipeline with drift detection are done:
+data versioning (DVC) -> experiment tracking & model registry (MLflow) -> model serving (FastAPI + Docker)
+-> drift detection (PSI + Prometheus + Grafana) -> automated retraining trigger (GitHub Actions, human-gated promotion)
+-> drift simulation proof (score spike + alert firing).
