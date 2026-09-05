@@ -78,3 +78,45 @@ Status: 🔲 Not Started
 
 ## Step 8: Documentation & Screenshots
 Status: 🔲 Not Started
+
+---
+
+## Step 3: Training Pipeline & Experiment Tracking (MLflow) — UPDATE
+
+- Installed MLflow (`pip install mlflow xgboost`)
+- Created `src/train.py` — trains 3 models: Logistic Regression, Random Forest, XGBoost
+- Logged params, metrics (accuracy, precision, recall, f1, auc), and model artifacts to MLflow
+- Fixed dataset to have real signal (churn probability based on tenure, contract type, charges, tech support)
+- Fixed XGBoost logging issue by using `mlflow.xgboost.log_model` instead of `mlflow.sklearn.log_model`
+- Compared 3 runs in MLflow UI (Parallel Coordinates Plot)
+- Registered best model (random_forest, f1_score=0.57) as "churn-model" version 1
+- Promoted version 1 through aliases: `staging` -> `production`
+
+Commands used:
+
+```bash
+pip install mlflow xgboost
+python3 src/train.py
+mlflow ui --host 0.0.0.0 --port 5000
+
+# Register best model
+python3 -c "
+import mlflow
+client = mlflow.tracking.MlflowClient()
+experiment = client.get_experiment_by_name('churn-prediction')
+runs = client.search_runs(experiment.experiment_id, order_by=['metrics.f1_score DESC'])
+best_run = runs[0]
+model_uri = f'runs:/{best_run.info.run_id}/model'
+mlflow.register_model(model_uri, 'churn-model')
+"
+
+# Promote via aliases
+python3 -c "
+import mlflow
+client = mlflow.tracking.MlflowClient()
+client.set_registered_model_alias('churn-model', 'staging', 1)
+client.set_registered_model_alias('churn-model', 'production', 1)
+"
+```
+
+Status: ✅ Done
