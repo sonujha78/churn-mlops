@@ -57,7 +57,7 @@ dvc push
 git push
 ```
 
-Status: ⏳ In Progress
+Status: ✅ Done
 
 ---
 
