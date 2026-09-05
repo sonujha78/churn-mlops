@@ -105,23 +105,6 @@ Status: ✅ Done
 ---
 
 ## Step 4: Model Serving (FastAPI + Docker)
-Status: 🔲 Not Started
-
-## Step 5: Drift Detection
-Status: 🔲 Not Started
-
-## Step 6: Automated Retraining Trigger
-Status: 🔲 Not Started
-
-## Step 7: Simulating Drift
-Status: 🔲 Not Started
-
-## Step 8: Documentation & Screenshots
-Status: 🔲 Not Started
-
----
-
-## Step 4: Model Serving (FastAPI + Docker) — DONE
 
 - Installed FastAPI, uvicorn, pydantic
 - Created `src/serve.py` — loads production model from MLflow registry using alias-based URI (`models:/churn-model@production`)
@@ -153,3 +136,17 @@ curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -
 ```
 
 Status: ✅ Done
+
+---
+
+## Step 5: Drift Detection
+Status: 🔲 Not Started
+
+## Step 6: Automated Retraining Trigger
+Status: 🔲 Not Started
+
+## Step 7: Simulating Drift
+Status: 🔲 Not Started
+
+## Step 8: Documentation & Screenshots
+Status: 🔲 Not Started
