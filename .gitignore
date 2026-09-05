@@ -6,3 +6,4 @@ mlruns/
 *.dvc.lock
 data/*.csv
 models/*.pkl
+mlflow.db
