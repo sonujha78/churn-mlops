@@ -109,11 +109,12 @@ Status: ✅ Done
 - Installed FastAPI, uvicorn, pydantic
 - Created `src/serve.py` — loads production model from MLflow registry using alias-based URI (`models:/churn-model@production`)
 - Implemented `/health`, `/model-info`, and `/predict` endpoints
-- Every prediction logged to `prediction_logs.jsonl` (timestamp, input features, probability, prediction) — this feeds drift detection later
+- Every prediction logged to `prediction_logs.jsonl` (timestamp, input features, probability, prediction) — this feeds drift detection
 - Tested locally with uvicorn — all endpoints working
 - Created `requirements-serve.txt` (minimal deps for serving, separate from full dev environment)
 - Built Dockerfile (python:3.12-slim base), staged pip installs to handle slow network / timeouts
 - Fixed artifact path mismatch issue by mounting mlflow.db and mlruns at the exact same absolute host path inside the container, and overriding MLFLOW_TRACKING_URI accordingly
+- Also mounted prediction_logs.jsonl to host so live logs are visible outside the container
 - Verified containerized API: /health, /model-info, /predict all working correctly
 
 Commands used:
@@ -127,6 +128,7 @@ docker run -d \
   -p 8000:8000 \
   -v ~/churn-mlops/mlflow.db:/home/sonu/churn-mlops/mlflow.db \
   -v ~/churn-mlops/mlruns:/home/sonu/churn-mlops/mlruns \
+  -v ~/churn-mlops/prediction_logs.jsonl:/app/prediction_logs.jsonl \
   -e MLFLOW_TRACKING_URI="sqlite:////home/sonu/churn-mlops/mlflow.db" \
   churn-serving-api:latest
 
@@ -140,7 +142,47 @@ Status: ✅ Done
 ---
 
 ## Step 5: Drift Detection
-Status: 🔲 Not Started
+
+- Created `src/drift.py` — computes Population Stability Index (PSI) per numeric feature (tenure_months, monthly_charges, total_charges) comparing training distribution vs live prediction traffic
+- Made PSI calculation robust: clips out-of-range live values into training range before binning (avoids np.histogram silently dropping outliers and inflating PSI), and adapts bucket count to live sample size (avoids noisy PSI with small windows)
+- Created `src/monitor.py` — background loop that reads `prediction_logs.jsonl`, computes drift on a rolling window (last 50 requests), and exposes metrics via `prometheus_client` on port 9100
+- Exposed metrics: `model_drift_score` (overall PSI), `model_feature_drift_score` (per-feature PSI), `model_prediction_total`, `model_churn_prediction_total`, `model_churn_rate`
+- Installed and configured Prometheus (v2.54.1) to scrape the monitor's `/metrics` endpoint every 5s
+- Configured a Prometheus alert rule (`HighDataDrift`) that fires when `model_drift_score > 0.25` for 30s
+- Installed Grafana (v11.2.0), connected Prometheus as a data source
+- Built a Grafana dashboard ("Churn Model Monitoring") with 3 panels: Data Drift Score (PSI) with a 0.25 threshold line, Prediction Volume (per sec), Churn Prediction Rate
+- Verified with normal (training-like) traffic that drift score stays low (~0.11-0.24), confirming baseline works correctly before simulating real drift
+
+Commands used:
+
+```bash
+pip install prometheus-client
+
+# Run monitor (exposes :9100/metrics)
+python3 src/monitor.py
+
+# Prometheus setup
+mkdir -p monitoring/prometheus && cd monitoring/prometheus
+wget https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
+tar xvfz prometheus-2.54.1.linux-amd64.tar.gz
+# prometheus.yml scrapes localhost:9100, alert_rules.yml defines HighDataDrift (> 0.25)
+./prometheus --config.file=prometheus.yml --web.listen-address=:9090
+
+# Grafana setup
+cd ~/churn-mlops/monitoring
+wget https://dl.grafana.com/oss/release/grafana-11.2.0.linux-amd64.tar.gz
+tar -zxvf grafana-11.2.0.linux-amd64.tar.gz
+cd grafana-v11.2.0
+./bin/grafana-server --homepath .
+# Added Prometheus data source (http://localhost:9090) in Grafana UI
+# Built dashboard with drift score / prediction volume / churn rate panels
+```
+
+Screenshots: `docs/screenshots/04-grafana-dashboard-normal-traffic.png`
+
+Status: ✅ Done
+
+---
 
 ## Step 6: Automated Retraining Trigger
 Status: 🔲 Not Started
@@ -149,4 +191,4 @@ Status: 🔲 Not Started
 Status: 🔲 Not Started
 
 ## Step 8: Documentation & Screenshots
-Status: 🔲 Not Started
+Status: 🔲 In Progress (screenshots being added to docs/screenshots/ as steps complete)
