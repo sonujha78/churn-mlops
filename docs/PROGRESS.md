@@ -1,20 +1,14 @@
 # MLOps Churn Pipeline — Progress Log
-
 Project: Customer Churn Prediction with Drift Detection
 Repo: https://github.com/sonujha78/churn-mlops
-
 ---
-
 ## Step 1: Environment & Project Setup
-
 - Created project directory `churn-mlops`
 - Initialized Git repo, connected to GitHub remote
 - Created Python virtual environment (`venv`)
 - Created folder structure: data/, models/, src/, notebooks/, .github/workflows/, monitoring/, docs/
 - Added `.gitignore` for venv, data files, model files, mlruns
-
 Commands used:
-
 ```bash
 mkdir -p ~/churn-mlops && cd ~/churn-mlops
 git init
@@ -25,45 +19,33 @@ mkdir -p data models src notebooks .github/workflows monitoring docs
 git remote add origin https://github.com/sonujha78/churn-mlops.git
 git push -u origin main
 ```
-
 Status: ✅ Done
-
 ---
-
 ## Step 2: DVC Setup & Dataset Versioning
-
 - Installed DVC (`pip install dvc`)
 - Initialized DVC in the project (`dvc init`)
 - Created sample customer churn dataset (`data/customer_churn.csv`)
 - Tracked dataset with DVC (`dvc add`)
 - Configured local DVC remote storage (`~/dvc-storage`)
 - Pushed data to DVC remote (`dvc push`)
-
 Commands used:
-
 ```bash
 pip install dvc
 dvc init
 git add .dvc .dvcignore
 git commit -m "chore: initialize DVC"
-
 dvc add data/customer_churn.csv
 git add data/customer_churn.csv.dvc
 git commit -m "feat: add initial dataset (v1) tracked with DVC"
-
 dvc remote add -d myremote ~/dvc-storage
 git add .dvc/config
 git commit -m "chore: configure DVC local remote storage"
 dvc push
 git push
 ```
-
 Status: ✅ Done
-
 ---
-
 ## Step 3: Training Pipeline & Experiment Tracking (MLflow)
-
 - Installed MLflow (`pip install mlflow xgboost`)
 - Created `src/train.py` — trains 3 models: Logistic Regression, Random Forest, XGBoost
 - Logged params, metrics (accuracy, precision, recall, f1, auc), and model artifacts to MLflow
@@ -72,14 +54,11 @@ Status: ✅ Done
 - Compared 3 runs in MLflow UI (Parallel Coordinates Plot)
 - Registered best model (random_forest, f1_score=0.57) as "churn-model" version 1
 - Promoted version 1 through aliases: `staging` -> `production`
-
 Commands used:
-
 ```bash
 pip install mlflow xgboost
 python3 src/train.py
 mlflow ui --host 0.0.0.0 --port 5000
-
 # Register best model
 python3 -c "
 import mlflow
@@ -90,7 +69,6 @@ best_run = runs[0]
 model_uri = f'runs:/{best_run.info.run_id}/model'
 mlflow.register_model(model_uri, 'churn-model')
 "
-
 # Promote via aliases
 python3 -c "
 import mlflow
@@ -99,13 +77,9 @@ client.set_registered_model_alias('churn-model', 'staging', 1)
 client.set_registered_model_alias('churn-model', 'production', 1)
 "
 ```
-
 Status: ✅ Done
-
 ---
-
 ## Step 4: Model Serving (FastAPI + Docker)
-
 - Installed FastAPI, uvicorn, pydantic
 - Created `src/serve.py` — loads production model from MLflow registry using alias-based URI (`models:/churn-model@production`)
 - Implemented `/health`, `/model-info`, and `/predict` endpoints
@@ -116,13 +90,10 @@ Status: ✅ Done
 - Fixed artifact path mismatch issue by mounting mlflow.db and mlruns at the exact same absolute host path inside the container, and overriding MLFLOW_TRACKING_URI accordingly
 - Also mounted prediction_logs.jsonl to host so live logs are visible outside the container
 - Verified containerized API: /health, /model-info, /predict all working correctly
-
 Commands used:
-
 ```bash
 pip install fastapi uvicorn pydantic
 docker build -t churn-serving-api:latest .
-
 docker run -d \
   --name churn-api \
   -p 8000:8000 \
@@ -131,18 +102,13 @@ docker run -d \
   -v ~/churn-mlops/prediction_logs.jsonl:/app/prediction_logs.jsonl \
   -e MLFLOW_TRACKING_URI="sqlite:////home/sonu/churn-mlops/mlflow.db" \
   churn-serving-api:latest
-
 curl http://localhost:8000/health
 curl http://localhost:8000/model-info
 curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{...}'
 ```
-
 Status: ✅ Done
-
 ---
-
 ## Step 5: Drift Detection
-
 - Created `src/drift.py` — computes Population Stability Index (PSI) per numeric feature (tenure_months, monthly_charges, total_charges) comparing training distribution vs live prediction traffic
 - Made PSI calculation robust: clips out-of-range live values into training range before binning (avoids np.histogram silently dropping outliers and inflating PSI), and adapts bucket count to live sample size (avoids noisy PSI with small windows)
 - Created `src/monitor.py` — background loop that reads `prediction_logs.jsonl`, computes drift on a rolling window (last 50 requests), and exposes metrics via `prometheus_client` on port 9100
@@ -152,22 +118,17 @@ Status: ✅ Done
 - Installed Grafana (v11.2.0), connected Prometheus as a data source
 - Built a Grafana dashboard ("Churn Model Monitoring") with 3 panels: Data Drift Score (PSI) with a 0.25 threshold line, Prediction Volume (per sec), Churn Prediction Rate
 - Verified with normal (training-like) traffic that drift score stays low (~0.11-0.24), confirming baseline works correctly before simulating real drift
-
 Commands used:
-
 ```bash
 pip install prometheus-client
-
 # Run monitor (exposes :9100/metrics)
 python3 src/monitor.py
-
 # Prometheus setup
 mkdir -p monitoring/prometheus && cd monitoring/prometheus
 wget https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
 tar xvfz prometheus-2.54.1.linux-amd64.tar.gz
 # prometheus.yml scrapes localhost:9100, alert_rules.yml defines HighDataDrift (> 0.25)
 ./prometheus --config.file=prometheus.yml --web.listen-address=:9090
-
 # Grafana setup
 cd ~/churn-mlops/monitoring
 wget https://dl.grafana.com/oss/release/grafana-11.2.0.linux-amd64.tar.gz
@@ -177,18 +138,26 @@ cd grafana-v11.2.0
 # Added Prometheus data source (http://localhost:9090) in Grafana UI
 # Built dashboard with drift score / prediction volume / churn rate panels
 ```
-
 Screenshots: `docs/screenshots/04-grafana-dashboard-normal-traffic.png`
-
 Status: ✅ Done
-
 ---
-
 ## Step 6: Automated Retraining Trigger
-Status: 🔲 Not Started
-
+- Created `src/retrain.py` — retrains a RandomForest model on the latest data and logs a NEW MLflow run (does NOT auto-promote to production)
+- New model is registered and given the `staging` alias only — promotion to `production` requires manual review, per task requirement
+- Made retraining script resilient: if the DVC-tracked dataset isn't available in the environment (e.g. a CI runner without access to the local DVC remote), it regenerates an equivalent dataset so the pipeline still runs end-to-end. In a full production setup, the DVC remote would be cloud-hosted object storage (S3/GCS) accessible from CI.
+- Created `.github/workflows/retrain.yml` — GitHub Actions workflow triggered by a `repository_dispatch` event (`drift_alert`), also supports manual `workflow_dispatch` for testing
+- Created `src/trigger_retrain.py` — simulates what a Prometheus Alertmanager webhook receiver would do when the `HighDataDrift` alert fires: calls the GitHub API to dispatch the `drift_alert` event
+- Verified end-to-end: triggered the workflow manually, it ran on GitHub Actions, retrained the model, and registered a new version with the `staging` alias (confirmed via Actions run #2 — success)
+Commands used:
+```bash
+pip install requests
+# Trigger retraining workflow (simulates alert webhook firing)
+export GITHUB_TOKEN="<personal_access_token>"
+python3 src/trigger_retrain.py "drift_detected"
+```
+Status: ✅ Done
+---
 ## Step 7: Simulating Drift
 Status: 🔲 Not Started
-
 ## Step 8: Documentation & Screenshots
 Status: 🔲 In Progress (screenshots being added to docs/screenshots/ as steps complete)
