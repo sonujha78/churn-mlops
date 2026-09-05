@@ -37,6 +37,7 @@ Status: ✅ Done
 - Created sample customer churn dataset (`data/customer_churn.csv`)
 - Tracked dataset with DVC (`dvc add`)
 - Configured local DVC remote storage (`~/dvc-storage`)
+- Pushed data to DVC remote (`dvc push`)
 
 Commands used:
 
@@ -47,7 +48,7 @@ git add .dvc .dvcignore
 git commit -m "chore: initialize DVC"
 
 dvc add data/customer_churn.csv
-git add data/customer_churn.csv.dvc data/.gitignore
+git add data/customer_churn.csv.dvc
 git commit -m "feat: add initial dataset (v1) tracked with DVC"
 
 dvc remote add -d myremote ~/dvc-storage
@@ -62,26 +63,6 @@ Status: ✅ Done
 ---
 
 ## Step 3: Training Pipeline & Experiment Tracking (MLflow)
-Status: 🔲 Not Started
-
-## Step 4: Model Serving (FastAPI + Docker)
-Status: 🔲 Not Started
-
-## Step 5: Drift Detection
-Status: 🔲 Not Started
-
-## Step 6: Automated Retraining Trigger
-Status: 🔲 Not Started
-
-## Step 7: Simulating Drift
-Status: 🔲 Not Started
-
-## Step 8: Documentation & Screenshots
-Status: 🔲 Not Started
-
----
-
-## Step 3: Training Pipeline & Experiment Tracking (MLflow) — UPDATE
 
 - Installed MLflow (`pip install mlflow xgboost`)
 - Created `src/train.py` — trains 3 models: Logistic Regression, Random Forest, XGBoost
@@ -120,3 +101,20 @@ client.set_registered_model_alias('churn-model', 'production', 1)
 ```
 
 Status: ✅ Done
+
+---
+
+## Step 4: Model Serving (FastAPI + Docker)
+Status: 🔲 Not Started
+
+## Step 5: Drift Detection
+Status: 🔲 Not Started
+
+## Step 6: Automated Retraining Trigger
+Status: 🔲 Not Started
+
+## Step 7: Simulating Drift
+Status: 🔲 Not Started
+
+## Step 8: Documentation & Screenshots
+Status: 🔲 Not Started
