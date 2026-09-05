@@ -1,0 +1,43 @@
+name: Automated Retraining (Drift Triggered)
+
+on:
+  repository_dispatch:
+    types: [drift_alert]
+  workflow_dispatch:      # allows manual trigger too, for testing
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas numpy scikit-learn mlflow
+
+      - name: Run retraining script
+        run: |
+          python3 src/retrain.py
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+
+      - name: Upload retraining artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-retrain-run
+          path: |
+            mlflow.db
+            mlruns/
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          echo "### Retraining Complete" >> $GITHUB_STEP_SUMMARY
+          echo "A new model version was trained and registered with alias 'staging'." >> $GITHUB_STEP_SUMMARY
+          echo "**Manual review and promotion to 'production' is required** before it goes live." >> $GITHUB_STEP_SUMMARY
