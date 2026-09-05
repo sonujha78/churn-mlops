@@ -118,3 +118,38 @@ Status: 🔲 Not Started
 
 ## Step 8: Documentation & Screenshots
 Status: 🔲 Not Started
+
+---
+
+## Step 4: Model Serving (FastAPI + Docker) — DONE
+
+- Installed FastAPI, uvicorn, pydantic
+- Created `src/serve.py` — loads production model from MLflow registry using alias-based URI (`models:/churn-model@production`)
+- Implemented `/health`, `/model-info`, and `/predict` endpoints
+- Every prediction logged to `prediction_logs.jsonl` (timestamp, input features, probability, prediction) — this feeds drift detection later
+- Tested locally with uvicorn — all endpoints working
+- Created `requirements-serve.txt` (minimal deps for serving, separate from full dev environment)
+- Built Dockerfile (python:3.12-slim base), staged pip installs to handle slow network / timeouts
+- Fixed artifact path mismatch issue by mounting mlflow.db and mlruns at the exact same absolute host path inside the container, and overriding MLFLOW_TRACKING_URI accordingly
+- Verified containerized API: /health, /model-info, /predict all working correctly
+
+Commands used:
+
+```bash
+pip install fastapi uvicorn pydantic
+docker build -t churn-serving-api:latest .
+
+docker run -d \
+  --name churn-api \
+  -p 8000:8000 \
+  -v ~/churn-mlops/mlflow.db:/home/sonu/churn-mlops/mlflow.db \
+  -v ~/churn-mlops/mlruns:/home/sonu/churn-mlops/mlruns \
+  -e MLFLOW_TRACKING_URI="sqlite:////home/sonu/churn-mlops/mlflow.db" \
+  churn-serving-api:latest
+
+curl http://localhost:8000/health
+curl http://localhost:8000/model-info
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{...}'
+```
+
+Status: ✅ Done

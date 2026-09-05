@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.git/
+data/
+notebooks/
+docs/
+mlruns/
+prediction_logs.jsonl
