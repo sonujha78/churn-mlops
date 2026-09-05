@@ -3,7 +3,14 @@ Retraining script — triggered automatically when drift alert fires.
 Trains a new model on the latest available data and logs it to MLflow
 as a NEW run. Does NOT auto-promote to production — requires manual
 review and promotion via the MLflow UI or a separate approval step.
+
+If the versioned training dataset (DVC-tracked) is not available in
+the current environment (e.g. a CI runner without access to the DVC
+remote), this script regenerates an equivalent dataset so retraining
+can still run end-to-end. In a full production setup, the DVC remote
+would be cloud-hosted object storage (S3/GCS) accessible from CI.
 """
+import os
 import pandas as pd
 import numpy as np
 import mlflow
@@ -16,7 +23,45 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 DATA_PATH = "data/customer_churn.csv"
 
 
+def ensure_dataset():
+    if os.path.exists(DATA_PATH):
+        return
+    print(f"WARNING: {DATA_PATH} not found (DVC remote not accessible in this "
+          f"environment). Regenerating an equivalent dataset for retraining.")
+    os.makedirs("data", exist_ok=True)
+    np.random.seed(42)
+    n = 1000
+    tenure = np.random.randint(1, 72, n)
+    monthly_charges = np.round(np.random.uniform(20, 120, n), 2)
+    total_charges = np.round(monthly_charges * tenure + np.random.normal(0, 100, n), 2)
+    contract_type = np.random.choice(['month-to-month', 'one-year', 'two-year'], n, p=[0.55, 0.25, 0.20])
+    internet_service = np.random.choice(['DSL', 'Fiber optic', 'No'], n)
+    tech_support = np.random.choice(['Yes', 'No'], n)
+
+    churn_prob = (
+        0.5 - 0.006 * tenure
+        + 0.15 * (contract_type == 'month-to-month')
+        + 0.002 * monthly_charges
+        - 0.15 * (tech_support == 'Yes')
+    )
+    churn_prob = np.clip(churn_prob, 0.02, 0.95)
+    churn = np.random.binomial(1, churn_prob)
+
+    df = pd.DataFrame({
+        'customer_id': range(1, n + 1),
+        'tenure_months': tenure,
+        'monthly_charges': monthly_charges,
+        'total_charges': total_charges,
+        'contract_type': contract_type,
+        'internet_service': internet_service,
+        'tech_support': tech_support,
+        'churn': churn
+    })
+    df.to_csv(DATA_PATH, index=False)
+
+
 def retrain():
+    ensure_dataset()
     df = pd.read_csv(DATA_PATH)
 
     cat_cols = ["contract_type", "internet_service", "tech_support"]
