@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.env
+mlruns/
+*.dvc.lock
+data/*.csv
+models/*.pkl
